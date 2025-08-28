@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<!-- © 2025 Arnaud Amiel. Licensed under the MIT License. -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QNH Correction Calculator</title>
+    <!-- Use Tailwind CSS for a modern, responsive design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background for a sleek look */
+            color: #e2e8f0; /* Light text for contrast */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        /* Custom styles for the calculator card */
+        .calculator-card {
+            background-color: #2d3748; /* Slightly lighter dark background */
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            border: 1px solid #4a5568; /* Subtle border */
+        }
+        .input-field {
+            background-color: #4a5568;
+            color: #e2e8f0;
+            border: 1px solid #4a5568;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            margin-top: 0.5rem;
+            transition: all 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #63b3ed; /* Focus color */
+            box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.5);
+        }
+        .calculate-btn {
+            background-color: #63b3ed; /* Blue color for the button */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 1.5rem;
+        }
+        .calculate-btn:hover {
+            background-color: #4299e1; /* Darker blue on hover */
+        }
+        .result-box {
+            background-color: #4a5568;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="calculator-card">
+        <h1 class="text-3xl font-bold mb-2">QNH Correction Calculator</h1>
+        <p class="text-sm text-gray-400 mb-6">Calculate the required altitude correction based on pressure.</p>
+
+        <div class="mb-4 text-left">
+            <label for="pressureInput" class="block text-sm font-medium text-gray-300">Pressure</label>
+            <div class="flex items-center space-x-2">
+                <input type="number" id="pressureInput" class="input-field flex-grow" placeholder="e.g., 1005" required>
+                <select id="pressureUnit" class="input-field w-auto text-sm">
+                    <option value="hPa">hPa</option>
+                    <option value="inHg">inHg</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="mb-4 text-left">
+            <label for="correctionUnit" class="block text-sm font-medium text-gray-300">Correction Unit</label>
+            <select id="correctionUnit" class="input-field w-full text-sm">
+                <option value="FL">FL (Flight Level)</option>
+                <option value="feet">Feet</option>
+                <option value="meters">Meters</option>
+            </select>
+        </div>
+
+        <button onclick="calculateQnhCorrection()" class="calculate-btn w-full">Calculate Correction</button>
+
+        <div id="resultDisplay" class="result-box">
+            Enter pressure to get the correction.
+        </div>
+    </div>
+
+    <script>
+        // Standard sea level pressure in hPa
+        const STANDARD_PRESSURE_HPA = 1013.25;
+
+        // Function to calculate and display the QNH correction
+        function calculateQnhCorrection() {
+            // Get the input elements and the display element
+            const pressureInput = document.getElementById('pressureInput');
+            const pressureUnit = document.getElementById('pressureUnit').value;
+            const correctionUnit = document.getElementById('correctionUnit').value;
+            const resultDisplay = document.getElementById('resultDisplay');
+
+            // Get the value and convert it to a number
+            const qnhPressure = parseFloat(pressureInput.value);
+
+            // Validate the input
+            if (isNaN(qnhPressure) || qnhPressure <= 0) {
+                resultDisplay.textContent = 'Please enter a valid positive pressure value.';
+                resultDisplay.style.color = '#e53e3e'; // Red for error
+                return;
+            }
+
+            // Convert pressure to hPa if the unit is inHg
+            let pressureInHPa = qnhPressure;
+            if (pressureUnit === 'inHg') {
+                // Conversion factor from inches of mercury to hPa
+                pressureInHPa = qnhPressure * 33.86389;
+            }
+
+            // The correction is the difference between QNH and standard pressure,
+            // with a correction in line with ICAO 7488/3.
+            let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
+            
+            let finalCorrection;
+            let finalUnit;
+            
+            // Convert to the selected unit and apply specific rounding
+            if (correctionUnit === 'FL') {
+                finalCorrection = Math.round(correctionInFeet / 100);
+                finalUnit = 'FL';
+            } else if (correctionUnit === 'feet') {
+                finalCorrection = Math.round(correctionInFeet);
+                finalUnit = 'ft';
+            } else if (correctionUnit === 'meters') {
+                finalCorrection = Math.round(correctionInFeet * 0.3048);
+                finalUnit = 'm';
+            }
+
+            // Display the result with the correct sign and unit, in the requested format
+            let resultText = '';
+            if (finalCorrection > 0) {
+                resultText = `Correction: +${finalCorrection} ${finalUnit}`;
+                resultDisplay.style.color = '#48bb78'; // Green for positive correction
+            } else if (finalCorrection < 0) {
+                resultText = `Correction: ${finalCorrection} ${finalUnit}`;
+                resultDisplay.style.color = '#fc8181'; // Orange-red for negative correction
+            } else {
+                resultText = `Correction: ${finalCorrection} ${finalUnit}`;
+                resultDisplay.style.color = '#e2e8f0'; // Default color for zero correction
+            }
+            
+            // Update the display with the calculated result
+            resultDisplay.textContent = resultText;
+        }
+
+        // Add an event listener to run the script once the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // No need for a specific event listener here as the button has an onclick handler.
+            // The function is ready to be called when the button is clicked.
+        });
+    </script>
+</body>
+</html>
