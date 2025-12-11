@@ -27,7 +27,7 @@
         }
 
         body {
-            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background-color: var(--color-gray-900);
             color: var(--color-gray-500);
             display: flex;
@@ -58,7 +58,7 @@
         .flex-grow { flex-grow: 1; }
         .w-auto { width: auto; }
         .w-full { width: 100%; }
-        .w-full-btn { width: 100%; margin-top: 1.5rem; } /* Custom for button margin */
+        .mt-6 { margin-top: 1.5rem; }
         .text-center { text-align: center; }
 
         /* Custom styles for the calculator card */
@@ -153,7 +153,7 @@
             </select>
         </div>
 
-        <button onclick="calculateQnhCorrection()" class="calculate-btn w-full-btn">Calculate Correction</button>
+        <button id="calculateButton" class="calculate-btn w-full mt-6">Calculate Correction</button>
 
         <div id="resultDisplay" class="result-box">
             Enter pressure to get the correction.
@@ -230,10 +230,15 @@
             resultDisplay.textContent = resultText;
         }
 
-        // Add an event listener to make the calculator interactive immediately
+        // Ensure the script runs after the document elements exist
         document.addEventListener('DOMContentLoaded', () => {
-            // Optional: Could add an event listener to run the calculation on 'input' change for real-time updates.
-            // document.getElementById('pressureInput').addEventListener('input', calculateQnhCorrection);
+            // 1. Get the button element by its ID
+            const button = document.getElementById('calculateButton');
+
+            // 2. Attach the function to the 'click' event
+            if (button) {
+                button.addEventListener('click', calculateQnhCorrection);
+            }
         });
     </script>
 </body>
