@@ -163,6 +163,8 @@
     <script>
         // Standard sea level pressure in hPa
         const STANDARD_PRESSURE_HPA = 1013.25;
+        // Conversion factor from inches of mercury to hPa
+        const INHG_TO_HPA = 33.86389;
 
         // Function to calculate and display the QNH correction
         function calculateQnhCorrection() {
@@ -188,31 +190,12 @@
             // Convert pressure to hPa if the unit is inHg
             let pressureInHPa = qnhPressure;
             if (pressureUnit === 'inHg') {
-                // Conversion factor from inches of mercury to hPa
-                // 1 inHg = 33.86389 hPa
-                pressureInHPa = qnhPressure * 33.86389;
+                pressureInHPa = qnhPressure * INHG_TO_HPA;
             }
 
             // The correction is the difference between QNH and standard pressure,
             // with a correction in line with ICAO 7488/3 (Altitude Correction Formula).
-            // Formula: H = (P_std / P_qnh)^0.190284 * H_ind
-            // The code calculates the difference in pressure altitude from standard.
-            // A more precise formula for the pressure altitude difference (geopotential meters) is:
-            // H_diff = ( (P_std / P_qnh)^(1/5.255) - 1 ) * 44307.69 meters
-            // The original script uses an approximation derived from this:
-            let correctionInFeet = ((STANDARD_PRESSURE_HPA / pressureInHPa)**0.190284 - 1) * 145366.45 * -1;
-            // NOTE: The user's original formula was:
-            // let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
-            // Which calculates the difference in geopotential altitude *above* standard.
-            // Since the QNH setting corrects the altimeter to show true altitude (not pressure altitude)
-            // at the airport datum, the correction is the *opposite* of the pressure altitude difference.
-            // For example, if QNH (P_qnh) is higher than standard (P_std), the pressure altitude (H_p)
-            // is lower than true altitude (H_t). H_p = H_t - Correction. The altimeter reads too low
-            // pressure, meaning too high altitude. Thus, a positive correction (adding) is needed.
-            // P_qnh = 1023.25 hPa (high pressure). (P_qnh / P_std) > 1. Formula gives a positive number.
-            // This means the indicated altitude is *too low* by this amount. Altimeter correction must be *added*.
-            // Let's stick to the original script's logic for consistency, as it's designed to give the correction to *add*.
-            correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
+            let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
             
             let finalCorrection;
             let finalUnit;
@@ -249,8 +232,7 @@
 
         // Add an event listener to make the calculator interactive immediately
         document.addEventListener('DOMContentLoaded', () => {
-            // Optional: You could add an event listener to run the calculation on 'input' change
-            // for real-time updates, but sticking to the button click for consistency with original.
+            // Optional: Could add an event listener to run the calculation on 'input' change for real-time updates.
             // document.getElementById('pressureInput').addEventListener('input', calculateQnhCorrection);
         });
     </script>
