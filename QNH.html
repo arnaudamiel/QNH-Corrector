@@ -126,6 +126,12 @@
         .result-negative { color: var(--color-red-400) !important; }
         .result-error { color: var(--color-red-500) !important; }
         
+        /* Warning message styling */
+        .result-box[data-warning="true"] {
+            border: 2px solid var(--color-blue-500);
+            background-color: rgba(99, 179, 237, 0.1);
+        }
+        
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -165,6 +171,16 @@
         const STANDARD_PRESSURE_HPA = 1013.25;
         // Conversion factor from inches of mercury to hPa
         const INHG_TO_HPA = 33.86389;
+        // Conversion factor from feet to meters
+        const FEET_TO_METERS = 0.3048;
+
+        // Operational limits for pressure validation (in hPa)
+        const PRESSURE_LIMITS = {
+            hardMin: 850,      // Software-safety range: reject below this
+            hardMax: 1100,     // Software-safety range: reject above this
+            warningMin: 900,   // Conservative range: warn if below this
+            warningMax: 1050   // Conservative range: warn if above this
+        };
 
         // Function to calculate and display the QNH correction
         function calculateQnhCorrection() {
@@ -176,6 +192,7 @@
 
             // Reset dynamic color class
             resultDisplay.classList.remove('result-positive', 'result-negative', 'result-error');
+            resultDisplay.removeAttribute('data-warning');
 
             // Get the value and convert it to a number
             const qnhPressure = parseFloat(pressureInput.value);
@@ -193,6 +210,19 @@
                 pressureInHPa = qnhPressure * INHG_TO_HPA;
             }
 
+            // Check operational limits (hard rejection boundaries)
+            if (pressureInHPa < PRESSURE_LIMITS.hardMin || pressureInHPa > PRESSURE_LIMITS.hardMax) {
+                resultDisplay.textContent = `⚠️ Error: Pressure ${pressureInHPa.toFixed(2)} hPa is outside safe limits (${PRESSURE_LIMITS.hardMin}–${PRESSURE_LIMITS.hardMax} hPa).`;
+                resultDisplay.classList.add('result-error');
+                return;
+            }
+
+            // Check warning boundaries (aviation-operational range)
+            let warningMessage = '';
+            if (pressureInHPa < PRESSURE_LIMITS.warningMin || pressureInHPa > PRESSURE_LIMITS.warningMax) {
+                warningMessage = `⚠️ Warning: Pressure outside typical aviation range (${PRESSURE_LIMITS.warningMin}–${PRESSURE_LIMITS.warningMax} hPa). Result may be unusual.\n`;
+            }
+
             // The correction is the difference between QNH and standard pressure,
             // with a correction in line with ICAO 7488/3 (Altitude Correction Formula).
             let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
@@ -208,8 +238,7 @@
                 finalCorrection = Math.round(correctionInFeet);
                 finalUnit = 'ft';
             } else if (correctionUnit === 'meters') {
-                // 1 foot = 0.3048 meters
-                finalCorrection = Math.round(correctionInFeet * 0.3048);
+                finalCorrection = Math.round(correctionInFeet * FEET_TO_METERS);
                 finalUnit = 'm';
             }
 
@@ -224,6 +253,12 @@
             } else {
                 resultText = `Correction: ${finalCorrection} ${finalUnit}`;
                 // Uses the default result-box color
+            }
+            
+            // Prepend warning message if applicable
+            if (warningMessage) {
+                resultText = warningMessage + resultText;
+                resultDisplay.setAttribute('data-warning', 'true');
             }
             
             // Update the display with the calculated result
