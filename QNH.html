@@ -5,14 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QNH Correction Calculator</title>
     <style>
-        /*
-         * Simplified embedding of necessary Tailwind classes for offline use.
-         * Note: This is a manual selection/approximation of the required classes,
-         * as embedding the full Tailwind engine is impossible in this context.
-         * The original design intent and colors are preserved.
-         */
-
-        /* Global styles */
         :root {
             --color-gray-900: #1a202c;
             --color-gray-800: #2d3748;
@@ -38,9 +30,6 @@
             line-height: 1.5;
         }
         
-        /* Utility classes approximations */
-        .text-gray-100 { color: var(--color-gray-500); }
-        .bg-gray-900 { background-color: var(--color-gray-900); }
         .text-3xl { font-size: 1.875rem; }
         .font-bold { font-weight: 700; }
         .mb-2 { margin-bottom: 0.5rem; }
@@ -59,9 +48,7 @@
         .w-auto { width: auto; }
         .w-full { width: 100%; }
         .mt-6 { margin-top: 1.5rem; }
-        .text-center { text-align: center; }
 
-        /* Custom styles for the calculator card */
         .calculator-card {
             background-color: var(--color-gray-800);
             padding: 2rem;
@@ -73,7 +60,6 @@
             border: 1px solid var(--color-gray-700);
         }
 
-        /* Input field styles */
         .input-field {
             background-color: var(--color-gray-700);
             color: var(--color-gray-500);
@@ -83,17 +69,15 @@
             width: 100%;
             margin-top: 0.5rem;
             transition: all 0.2s;
-            -webkit-appearance: none; /* For select/input consistency */
-            -moz-appearance: none;
             appearance: none;
         }
+
         .input-field:focus {
             outline: none;
             border-color: var(--color-blue-500);
             box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.5);
         }
 
-        /* Calculate button styles */
         .calculate-btn {
             background-color: var(--color-blue-500);
             color: white;
@@ -104,11 +88,11 @@
             transition: all 0.2s;
             border: none;
         }
+
         .calculate-btn:hover {
             background-color: var(--color-blue-600);
         }
 
-        /* Result box styles */
         .result-box {
             background-color: var(--color-gray-700);
             padding: 1rem;
@@ -117,33 +101,41 @@
             font-size: 1.25rem;
             font-weight: 700;
             text-align: center;
-            /* Default color for zero correction */
             color: var(--color-gray-500);
+            white-space: pre-wrap;
         }
 
-        /* Dynamic result colors (set by JS) */
-        .result-positive { color: var(--color-green-500) !important; }
-        .result-negative { color: var(--color-red-400) !important; }
-        .result-error { color: var(--color-red-500) !important; }
+        .warning-text {
+            color: var(--color-red-400); 
+            display: block;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .correction-value {
+            display: block;
+        }
+
+        .result-positive { color: var(--color-green-500); }
+        .result-negative { color: var(--color-red-400); }
+        .result-error { color: var(--color-red-500); }
         
-        /* Warning message styling */
         .result-box[data-warning="true"] {
             border: 2px solid var(--color-blue-500);
-            background-color: rgba(99, 179, 237, 0.1);
+            background-color: rgba(99, 179, 237, 0.08);
         }
-        
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100">
+<body>
     <div class="calculator-card">
         <h1 class="text-3xl font-bold mb-2">QNH Correction Calculator</h1>
-        <p class="text-sm text-gray-400 mb-6">Calculate the required altitude correction based on pressure.</p>
 
         <div class="mb-4 text-left">
-            <label for="pressureInput" class="block text-sm font-medium text-gray-300">Pressure</label>
+            <label for="pressureInput" class="block text-sm font-medium text-gray-300">Pressure Setting (QNH)</label>
             <div class="flex items-center space-x-2">
-                <input type="number" id="pressureInput" class="input-field flex-grow" placeholder="e.g., 1005" required>
-                <select id="pressureUnit" class="input-field w-auto text-sm">
+                <input type="number" id="pressureInput" class="input-field flex-grow" placeholder="e.g., 1005" inputmode="decimal" aria-label="Pressure value" required>
+                <select id="pressureUnit" class="input-field w-auto text-sm" aria-label="Select pressure unit">
                     <option value="hPa">hPa</option>
                     <option value="inHg">inHg</option>
                 </select>
@@ -151,86 +143,101 @@
         </div>
         
         <div class="mb-4 text-left">
-            <label for="correctionUnit" class="block text-sm font-medium text-gray-300">Correction Unit</label>
-            <select id="correctionUnit" class="input-field w-full text-sm">
+            <label for="correctionUnit" class="block text-sm font-medium text-gray-300">Display Units</label>
+            <select id="correctionUnit" class="input-field w-full text-sm" aria-label="Select correction output unit">
                 <option value="FL">FL (Flight Level)</option>
                 <option value="feet">Feet</option>
                 <option value="meters">Meters</option>
             </select>
         </div>
 
-        <button id="calculateButton" class="calculate-btn w-full mt-6">Calculate Correction</button>
+        <button id="calculateButton" type="button" class="calculate-btn w-full mt-6">Calculate Correction</button>
 
-        <div id="resultDisplay" class="result-box">
+        <div id="resultDisplay" class="result-box" role="status" aria-live="polite">
             Enter pressure to get the correction.
         </div>
     </div>
 
     <script>
-        // Standard sea level pressure in hPa
+        /**
+         * Standard Constants
+         */
         const STANDARD_PRESSURE_HPA = 1013.25;
-        // Conversion factor from inches of mercury to hPa
         const INHG_TO_HPA = 33.86389;
-        // Conversion factor from feet to meters
         const FEET_TO_METERS = 0.3048;
 
-        // Operational limits for pressure validation (in hPa)
-        const PRESSURE_LIMITS = {
-            hardMin: 850,      // Software-safety range: reject below this
-            hardMax: 1100,     // Software-safety range: reject above this
-            warningMin: 900,   // Conservative range: warn if below this
-            warningMax: 1050   // Conservative range: warn if above this
+        const PRESSURE_LIMITS_HPA = {
+            hardMin: 850,
+            hardMax: 1100,
+            warningMin: 900,
+            warningMax: 1050
         };
 
-        // Function to calculate and display the QNH correction
+        function formatPressureValue(val, unit) {
+            if (unit === 'inHg') {
+                return parseFloat(val).toFixed(2);
+            }
+            return Math.round(val);
+        }
+
+        function getFormattedLimit(hpaLimit, unit) {
+            const converted = (unit === 'inHg') ? (hpaLimit / INHG_TO_HPA) : hpaLimit;
+            return formatPressureValue(converted, unit);
+        }
+
+        function updatePressureInputAttributes() {
+            const pressureUnit = document.getElementById('pressureUnit').value;
+            const pressureInputEl = document.getElementById('pressureInput');
+
+            if (pressureUnit === 'inHg') {
+                pressureInputEl.step = "0.01";
+                pressureInputEl.placeholder = "e.g., 29.92";
+            } else {
+                pressureInputEl.step = "1";
+                pressureInputEl.placeholder = "e.g., 1013";
+            }
+        }
+
         function calculateQnhCorrection() {
-            // Get the input elements and the display element
             const pressureInput = document.getElementById('pressureInput');
             const pressureUnit = document.getElementById('pressureUnit').value;
             const correctionUnit = document.getElementById('correctionUnit').value;
             const resultDisplay = document.getElementById('resultDisplay');
 
-            // Reset dynamic color class
-            resultDisplay.classList.remove('result-positive', 'result-negative', 'result-error');
+            // Clear previous result
+            resultDisplay.innerHTML = '';
             resultDisplay.removeAttribute('data-warning');
 
-            // Get the value and convert it to a number
-            const qnhPressure = parseFloat(pressureInput.value);
+            const rawInputValue = parseFloat(pressureInput.value);
 
-            // Validate the input
-            if (isNaN(qnhPressure) || qnhPressure <= 0) {
-                resultDisplay.textContent = 'Please enter a valid positive pressure value.';
-                resultDisplay.classList.add('result-error');
+            if (isNaN(rawInputValue) || rawInputValue <= 0) {
+                resultDisplay.innerHTML = '<span class="result-error">Please enter a valid positive pressure value.</span>';
                 return;
             }
 
-            // Convert pressure to hPa if the unit is inHg
-            let pressureInHPa = qnhPressure;
-            if (pressureUnit === 'inHg') {
-                pressureInHPa = qnhPressure * INHG_TO_HPA;
-            }
+            let pressureInHPa = (pressureUnit === 'inHg') ? rawInputValue * INHG_TO_HPA : rawInputValue;
 
-            // Check operational limits (hard rejection boundaries)
-            if (pressureInHPa < PRESSURE_LIMITS.hardMin || pressureInHPa > PRESSURE_LIMITS.hardMax) {
-                resultDisplay.textContent = `⚠️ Error: Pressure ${pressureInHPa.toFixed(2)} hPa is outside safe limits (${PRESSURE_LIMITS.hardMin}–${PRESSURE_LIMITS.hardMax} hPa).`;
-                resultDisplay.classList.add('result-error');
+            const displayValue = formatPressureValue(rawInputValue, pressureUnit);
+            const displayMin = getFormattedLimit(PRESSURE_LIMITS_HPA.hardMin, pressureUnit);
+            const displayMax = getFormattedLimit(PRESSURE_LIMITS_HPA.hardMax, pressureUnit);
+            const warnMin = getFormattedLimit(PRESSURE_LIMITS_HPA.warningMin, pressureUnit);
+            const warnMax = getFormattedLimit(PRESSURE_LIMITS_HPA.warningMax, pressureUnit);
+
+            if (pressureInHPa < PRESSURE_LIMITS_HPA.hardMin || pressureInHPa > PRESSURE_LIMITS_HPA.hardMax) {
+                resultDisplay.innerHTML = `<span class="result-error">⚠️ Error: Pressure ${displayValue} ${pressureUnit} is outside realistic limits (${displayMin}–${displayMax} ${pressureUnit}).</span>`;
                 return;
             }
 
-            // Check warning boundaries (aviation-operational range)
-            let warningMessage = '';
-            if (pressureInHPa < PRESSURE_LIMITS.warningMin || pressureInHPa > PRESSURE_LIMITS.warningMax) {
-                warningMessage = `⚠️ Warning: Pressure outside typical aviation range (${PRESSURE_LIMITS.warningMin}–${PRESSURE_LIMITS.warningMax} hPa). Result may be unusual.\n`;
+            let warningHtml = '';
+            if (pressureInHPa < PRESSURE_LIMITS_HPA.warningMin || pressureInHPa > PRESSURE_LIMITS_HPA.warningMax) {
+                warningHtml = `<span class="warning-text">⚠️ Warning: Pressure outside typical aviation range (${warnMin}–${warnMax} ${pressureUnit}).</span>`;
+                resultDisplay.setAttribute('data-warning', 'true');
             }
 
-            // The correction is the difference between QNH and standard pressure,
-            // with a correction in line with ICAO 7488/3 (Altitude Correction Formula).
-            let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA)**0.190284 - 1) * 145366.45;
-            
+            let correctionInFeet = ((pressureInHPa / STANDARD_PRESSURE_HPA) ** 0.190284 - 1) * 145366.45;
             let finalCorrection;
             let finalUnit;
             
-            // Convert to the selected unit and apply specific rounding
             if (correctionUnit === 'FL') {
                 finalCorrection = Math.round(correctionInFeet / 100);
                 finalUnit = 'FL';
@@ -242,38 +249,37 @@
                 finalUnit = 'm';
             }
 
-            // Display the result with the correct sign and unit, in the requested format
-            let resultText = '';
+            let colorClass = '';
+            let prefix = '';
             if (finalCorrection > 0) {
-                resultText = `Correction: +${finalCorrection} ${finalUnit}`;
-                resultDisplay.classList.add('result-positive');
+                colorClass = 'result-positive';
+                prefix = '+';
             } else if (finalCorrection < 0) {
-                resultText = `Correction: ${finalCorrection} ${finalUnit}`;
-                resultDisplay.classList.add('result-negative');
-            } else {
-                resultText = `Correction: ${finalCorrection} ${finalUnit}`;
-                // Uses the default result-box color
+                colorClass = 'result-negative';
             }
-            
-            // Prepend warning message if applicable
-            if (warningMessage) {
-                resultText = warningMessage + resultText;
-                resultDisplay.setAttribute('data-warning', 'true');
-            }
-            
-            // Update the display with the calculated result
-            resultDisplay.textContent = resultText;
+
+            const correctionHtml = `<span class="correction-value ${colorClass}">Correction: ${prefix}${finalCorrection} ${finalUnit}</span>`;
+            resultDisplay.innerHTML = warningHtml + correctionHtml;
         }
 
-        // Ensure the script runs after the document elements exist
         document.addEventListener('DOMContentLoaded', () => {
-            // 1. Get the button element by its ID
             const button = document.getElementById('calculateButton');
+            const pressureUnitEl = document.getElementById('pressureUnit');
+            const pressureInputEl = document.getElementById('pressureInput');
 
-            // 2. Attach the function to the 'click' event
-            if (button) {
-                button.addEventListener('click', calculateQnhCorrection);
-            }
+            updatePressureInputAttributes();
+
+            button.addEventListener('click', calculateQnhCorrection);
+            pressureUnitEl.addEventListener('change', updatePressureInputAttributes);
+            
+            pressureInputEl.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    calculateQnhCorrection();
+                }
+            });
+            
+            pressureInputEl.focus();
         });
     </script>
 </body>
